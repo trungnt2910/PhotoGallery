@@ -16,6 +16,9 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ReactImageGallery.Blazor", "Libraries\ReactImageGallery.Blazor\ReactImageGallery.Blazor.csproj", "{B5474728-351A-4ACD-B04D-5B2C3EF98140}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Libraries", "Libraries", "{33A9750B-9CE9-4BE6-8E99-5FC07A890648}"
+	ProjectSection(SolutionItems) = preProject
+		Libraries\Directory.Build.props = Libraries\Directory.Build.props
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

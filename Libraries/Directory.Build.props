@@ -1,0 +1,9 @@
+<Project>
+  <ItemGroup>
+    <Content Update="assets\**" Pack="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.ClientAssets" Version="0.1.0-alpha.21528.2" />
+  </ItemGroup>
+</Project>

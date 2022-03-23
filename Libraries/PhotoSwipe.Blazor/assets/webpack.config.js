@@ -20,7 +20,6 @@ module.exports = {
     },
     output: {
         filename: 'Photoswipe.Blazor.js',
-        path: path.resolve(__dirname, '../wwwroot'),
         libraryTarget: 'var',
         library: 'PhotoSwipe'
     },

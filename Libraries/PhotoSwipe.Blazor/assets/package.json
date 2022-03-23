@@ -4,9 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "webpack --mode production",
-    "build-dev": "webpack --mode development"
+    "build": "npm run build:release",
+    "build:Release": "webpack --mode production --env production --env configuration=Release",
+    "build:Debug": "webpack --mode development --env configuration=Debug",
+    "watch": "webpack --watch --mode development --env configuration=Debug"
   },
   "keywords": [],
   "author": "",

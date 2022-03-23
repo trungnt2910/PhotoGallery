@@ -20,7 +20,6 @@ module.exports = {
     },
     output: {
         filename: 'ReactImageGallery.Blazor.js',
-        path: path.resolve(__dirname, '../wwwroot'),
         libraryTarget: 'var',
         library: 'ReactImageGallery'
     },

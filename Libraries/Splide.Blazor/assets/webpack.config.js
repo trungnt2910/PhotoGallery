@@ -20,7 +20,6 @@ module.exports = {
     },
     output: {
         filename: 'Splide.Blazor.js',
-        path: path.resolve(__dirname, '../wwwroot'),
         libraryTarget: 'var',
         library: 'Splide.Blazor'
     },
