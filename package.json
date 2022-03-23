@@ -1,0 +1,9 @@
+{
+    "name": "photogallery",
+    "version": "0.0.1",
+    "description": "Photo Gallery",
+    "repository": {
+      "type": "git",
+      "url": "https://github.com/trungnt2910/PhotoGallery.git"
+    }
+  }
