@@ -15,21 +15,21 @@
   </ItemGroup>
 
   <ItemGroup>
-    <UpToDateCheckInput Include="NpmJS/src/**/*.ts" />
+    <UpToDateCheckInput Include="NpmJs/src/**/*.ts" />
   </ItemGroup>
 
   <ItemGroup>
     <!-- Excludes node_modules to prevent long file paths. See https://github.com/dotnet/msbuild/issues/406 -->
-    <NpmTsFiles Include="NpmJS/src/**/*.ts" Exclude="NpmJs/node_modules/**/*.*" />
+    <NpmTsFiles Include="NpmJs/src/**/*.ts" Exclude="NpmJs/node_modules/**/*.*" />
   </ItemGroup>
 
-  <Target Name="NpmBuild" BeforeTargets="PreBuildEvent" Inputs="@(NpmTsFiles);NpmJS/webpack.config.js;NpmJS/package.json;NpmJS/tsconfig.json" Outputs="wwwroot/$(ProjectName).js">
-    <Exec Condition="'$(Configuration)' == 'Debug'" Command="npm run build-dev" WorkingDirectory="NpmJS" />
-    <Exec Condition="'$(Configuration)' == 'Release'" Command="npm run build" WorkingDirectory="NpmJS" />
+  <Target Name="NpmBuild" BeforeTargets="PreBuildEvent" Inputs="@(NpmTsFiles);NpmJs/webpack.config.js;NpmJs/package.json;NpmJs/tsconfig.json" Outputs="wwwroot/$(ProjectName).js">
+    <Exec Condition="'$(Configuration)' == 'Debug'" Command="npm run build-dev" WorkingDirectory="NpmJs" />
+    <Exec Condition="'$(Configuration)' == 'Release'" Command="npm run build" WorkingDirectory="NpmJs" />
   </Target>
 
   <Target Name="NpmRestore" BeforeTargets="NpmBuild" Inputs="NpmJs/package.json" Outputs="NpmJs/package-lock.json;NpmJs/node_modules/.package-lock.json">
-    <Exec Command="npm install" WorkingDirectory="NpmJS" />
+    <Exec Command="npm install" WorkingDirectory="NpmJs" />
   </Target>
 
 </Project>
