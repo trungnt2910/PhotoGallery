@@ -39,11 +39,17 @@ jobs:
       - name: Set Heroku origin
         run: |
           heroku git:remote -a photogallery12tin
-      - name: Set Heroku buildpack
+
+      - name: Set Heroku dotnet buildpack
         continue-on-error: true
         run: |
           heroku buildpacks:set jincod/dotnetcore
+
+      - name: Add Heroku Node.js buildpack
+        continue-on-error: true
+        run: |
           heroku buildpacks:add --index 1 heroku/nodejs
+
       - name: Push to heroku
         run: |
           git push -f heroku master
