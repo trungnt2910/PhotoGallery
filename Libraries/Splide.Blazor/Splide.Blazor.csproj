@@ -32,4 +32,11 @@
     <Exec Command="npm install" WorkingDirectory="NpmJs" />
   </Target>
 
+  <ItemGroup>
+    <Content Remove="NpmJs/*.json" />
+    <None Include="NpmJs/*.json">
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>
