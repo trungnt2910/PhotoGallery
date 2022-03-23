@@ -28,7 +28,7 @@
     <Exec Condition="'$(Configuration)' == 'Release'" Command="npm run build" WorkingDirectory="NpmJS" />
   </Target>
 
-  <Target Name="NpmRestore" BeforeTargets="Restore" Inputs="NpmJs/package.json" Outputs="NpmJs/package-lock.json">
+  <Target Name="NpmRestore" BeforeTargets="Restore" Inputs="NpmJs/package.json" Outputs="NpmJs/package-lock.json;NpmJs/node_modules/.package-lock.json">
     <Exec Command="npm install" WorkingDirectory="NpmJS" />
   </Target>
 
