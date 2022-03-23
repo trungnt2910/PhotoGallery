@@ -1,0 +1,206 @@
+﻿@using Microsoft.AspNetCore.WebUtilities
+@using PhotoGallery.Models
+@inherits LayoutComponentBase
+
+@inject IdentityService _identityService
+@inject DialogService _dialogService
+@inject NotificationService _notificationService
+@inject HttpClient _http
+
+<RadzenDialog />
+<RadzenNotification />
+
+<RadzenLayout>
+<RadzenHeader>
+    <ChildContent>
+        <div class="row justify-content-start align-items-center" style="margin-right:0.25rem">
+            <div class="col-5 d-flex align-items-center">
+                <RadzenSidebarToggle Click="@(args => { _sidebarExpanded = !_sidebarExpanded; _bodyExpanded = !_bodyExpanded; })">
+                </RadzenSidebarToggle>
+                <RadzenLabel Text="Photo Gallery" Style="margin:0.25rem">
+                </RadzenLabel>
+            </div>
+            <div class="col-7 d-flex align-items-center justify-content-end">
+                <RadzenLabel Text="@_accountDisplayText" Style="margin:0.25rem" />
+                <RadzenButton Text="@_signInDisplayText" Click="SignInButton_Click" />
+            </div>
+        </div>
+    </ChildContent>
+</RadzenHeader>
+<RadzenBody @ref="@body0" @bind-Expanded="@_bodyExpanded">
+    <ChildContent>
+        <RadzenContentContainer Name="main">
+            <div class="container-fluid">
+                <div class="row">
+                    <div class="col-12 pt-4 pb-5 px-3 px-lg-5">
+                        @Body
+                    </div>
+                </div>
+            </div>
+        </RadzenContentContainer>
+    </ChildContent>
+</RadzenBody>
+<RadzenSidebar @ref="@sidebar0" @bind-Expanded="@_sidebarExpanded">
+    <ChildContent>
+        <RadzenPanelMenu Style="width:100%">
+            <RadzenPanelMenuItem Text="Home" Icon="home" Path="/" />
+            <RadzenPanelMenuItem Text="Gallery" Icon="image" Path="Gallery" />
+            <RadzenPanelMenuItem Text="Favorites" Icon="favorite" Path="Favorites" />
+            <RadzenPanelMenuItem Text="Admin" Icon="admin_panel_settings" Path="Admin" />
+        </RadzenPanelMenu>
+    </ChildContent>
+</RadzenSidebar>
+</RadzenLayout>
+
+@code {
+    RadzenSidebar sidebar0;
+    RadzenBody body0;
+    private RadzenLogin _login;
+
+    private bool _sidebarExpanded = true;
+    private bool _bodyExpanded = false;
+
+    private string _activeUsername { get; set; }
+    private string _accountDisplayText => string.IsNullOrEmpty(_activeUsername) ? "" : $"Hi, {_activeUsername}!";
+    private string _signInDisplayText => string.IsNullOrEmpty(_activeUsername) ? "Sign in" : "Switch account";
+
+    private string _loginStatusText { get; set; }
+    private string _loginStatusType { get; set; }
+    private string _loginUsername { get; set; }
+    private string _loginPassword { get; set; }
+
+    private async void SignInButton_Click(MouseEventArgs args)
+    {
+        _loginUsername = _activeUsername;
+        _loginStatusText = "Please log in or register to continue.";
+        _loginStatusType = "primary";
+
+        await _dialogService.OpenAsync("Login", ds =>
+        {
+            return
+            @<div>
+                <RadzenLogin AllowResetPassword="false" 
+                             Login=@(async args => 
+                                 {
+                                     var err = await LoginAsync(args);
+                                     if (err == null)
+                                     {
+                                         ds.Close();
+                                     }
+                                     else
+                                     {
+                                         _loginStatusText = err;
+                                         _loginStatusType = "danger";
+                                     }
+                                     ds.Refresh();
+                                 }) 
+                             Register=@(async args => 
+                                 {
+                                     var err = await RegisterAsync(_login.Username, _login.Password); 
+                                     if (err == null)
+                                     {
+                                         _loginStatusText = "Account has been successfully created. Please sign in.";
+                                         _loginStatusType = "success";
+                                     }
+                                     else
+                                     {
+                                         _loginStatusText = err;
+                                         _loginStatusType = "danger";
+                                     }
+                                     ds.Refresh();
+                                 }) 
+                             @ref="_login"/>
+                <div class="text-@_loginStatusType">@_loginStatusText</div>
+            </div>
+            ;
+        });
+    }
+
+
+    private async Task<string> LoginAsync(LoginArgs args)
+    {
+        var login = new Login() { Name = args.Username, Password = args.Password };
+        var response = await _http.PostAsJsonAsync("api/Accounts/login", login);
+        try
+        {
+            if (response.IsSuccessStatusCode)
+            {
+                var identity = await response.Content.ReadFromJsonAsync<Identity>();
+                _activeUsername = login.Name;
+                await _identityService.SetUsernameAsync(_activeUsername);
+                await _identityService.SetIdentityAsync(identity);
+                return null;
+            }
+            else
+            {
+                return "Login failed: " + 
+                    (string.IsNullOrEmpty(response.ReasonPhrase) ? 
+                        ReasonPhrases.GetReasonPhrase((int)response.StatusCode) : 
+                        response.ReasonPhrase);
+            }
+        }
+        catch (Exception e)
+        {
+            return e.Message;
+        }
+    }
+
+    private async Task<string> RegisterAsync(string username, string password)
+    {
+        if (string.IsNullOrWhiteSpace(username))
+        {
+            return "Please enter your username.";
+        }
+        if (string.IsNullOrEmpty(password))
+        {
+            return "Please enter your password.";
+        }
+        var login = new Login() { Name = username, Password = password };
+        var response = await _http.PostAsJsonAsync("api/Accounts/register", login);
+        try
+        {
+            if ((response.Content.Headers.ContentLength ?? 0L) > 0)
+            {
+                var serverResponse = await response.Content.ReadFromJsonAsync<Response>();
+                if (serverResponse.Status == "Success")
+                {
+                    return null;
+                }
+                else if (serverResponse.Status == "Error")
+                {
+                    _loginStatusType = "danger";
+                }
+                else
+                {
+                    _loginStatusType = "info";
+                }
+                return $"{serverResponse.Status}: {serverResponse.Message}";
+            }
+            else
+            {
+                return "Register failed: " + 
+                    (string.IsNullOrEmpty(response.ReasonPhrase) ? 
+                        ReasonPhrases.GetReasonPhrase((int)response.StatusCode) : 
+                        response.ReasonPhrase);
+            }
+        }
+        catch (Exception e)
+        {
+            return e.Message;
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var identity = await _identityService.GetIdentityAsync();
+        if (identity != null)
+        {
+            _activeUsername = await _identityService.GetUsernameAsync();
+        }
+        _identityService.IdentityChanged += (s, a) =>
+        {
+            _notificationService.Notify(new NotificationMessage(){Severity = NotificationSeverity.Success, Summary = "Log in success", Detail = $"Successfullly logged in as {_activeUsername}."});
+        };
+        
+    }
+}

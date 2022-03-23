@@ -1,0 +1,41 @@
+﻿@page "/"
+@using PhotoGallery.Models
+@using ReactImageGallery.Blazor
+
+@inject ClientImagesService _imgService
+
+<PageTitle>Index</PageTitle>
+
+@if (_images == null || _galleryItems == null)
+{
+    <h4>Hang on, we're fetching your images...</h4>
+    <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+}
+else
+{
+    <ReactImageGalleryView 
+        Items="_galleryItems" 
+        ThumbnailPosition="@ReactImageGalleryPosition.Left"
+        ShowBullets="true"
+        AutoPlay="true" />
+}
+
+@code
+{
+    private IReadOnlyList<Image> _images;
+    private IList<ReactImageGalleryItem> _galleryItems;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _images = await _imgService.ListImagesAsync();
+        _galleryItems = _images.Select(img => new ReactImageGalleryItem()
+        {
+            OriginalUrl = img.Url,
+            ThumbnailUrl = img.ThumbnailUrl,
+            OriginalHeight = (int)img.Height,
+            OriginalWidth = (int)img.Width,
+            OriginalTitle = img.Name
+        }).ToList();
+        StateHasChanged();
+    }
+}

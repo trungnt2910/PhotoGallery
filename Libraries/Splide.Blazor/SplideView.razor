@@ -1,0 +1,56 @@
+﻿@using Microsoft.JSInterop
+
+@typeparam TItem
+
+@inject IJSRuntime _runtime
+
+<div class="splide" @ref="_elem">
+    <div class="splide__track">
+        <ul class="splide__list">
+            @if (Data != null)
+            {
+                var dataList = Data.ToList();
+                for (int i = 0; i < dataList.Count; ++i)
+                {
+                    <li class="splide__slide">
+                        @SlideTemplate(dataList[i])
+                    </li>
+                }
+            }
+        </ul>
+</div>
+</div>
+
+@code 
+{
+    [Parameter]
+    [EditorRequired]
+    public IEnumerable<TItem> Data
+    {
+        get; set;
+    }
+
+    [Parameter]
+    [EditorRequired]
+    public RenderFragment<TItem> SlideTemplate
+    {
+        get; set;
+    }
+
+    [Parameter]
+    public SplideOptions Options
+    {
+        get; set;
+    } = new();
+
+    private ElementReference _elem;
+    private IJSObjectReference _nativeReference;
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        _nativeReference = await _runtime.InvokeAsync<IJSObjectReference>("Splide.Blazor.SplideView.Construct", _elem, Options);
+        await _nativeReference.InvokeVoidAsync("Mount");
+    }
+}

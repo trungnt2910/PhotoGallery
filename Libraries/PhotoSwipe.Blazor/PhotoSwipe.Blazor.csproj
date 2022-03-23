@@ -1,0 +1,36 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Version>4.1.2</Version>
+  </PropertyGroup>
+
+
+  <ItemGroup>
+    <SupportedPlatform Include="browser" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="6.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <UpToDateCheckInput Include="NpmJS/src/**/*.ts" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Excludes node_modules to prevent long file paths. See https://github.com/dotnet/msbuild/issues/406 -->
+    <NpmTsFiles Include="NpmJS/src/**/*.ts" Exclude="NpmJs/node_modules/**/*.*" />
+  </ItemGroup>
+
+  <Target Name="NpmBuild" BeforeTargets="PreBuildEvent" Inputs="@(NpmTsFiles);NpmJS/webpack.config.js;NpmJS/package.json;NpmJS/tsconfig.json" Outputs="wwwroot/$(ProjectName).js">
+    <Exec Condition="'$(Configuration)' == 'Debug'" Command="npm run build-dev" WorkingDirectory="NpmJS" />
+    <Exec Condition="'$(Configuration)' == 'Release'" Command="npm run build" WorkingDirectory="NpmJS" />
+  </Target>
+
+  <Target Name="NpmRestore" BeforeTargets="Restore" Inputs="NpmJs/package.json" Outputs="NpmJs/package-lock.json">
+    <Exec Command="npm install" WorkingDirectory="NpmJS" />
+  </Target>
+
+</Project>

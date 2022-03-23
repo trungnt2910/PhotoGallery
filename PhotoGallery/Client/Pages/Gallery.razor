@@ -1,0 +1,116 @@
+﻿@page "/Gallery"
+@using PhotoGallery.Models
+@using PhotoSwipe.Blazor
+
+@inject HttpClient _http
+@inject PhotoSwipeService _photoSwipe
+@inject IJSInProcessRuntime _runtime
+@inject NavigationManager _navManager
+@inject ClientImagesService _imgService
+@inject IdentityService _identityService
+
+<PageTitle>Gallery</PageTitle>
+
+@if (_images == null || _photoSwipeItems == null)
+{
+    <h4>Hang on, we're fetching your images...</h4>
+    <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+}
+else
+{
+    <PhotoSwipeContainer>
+        <CustomButtons>
+            <style>
+                .pswp__button--heart {
+                    background: url("favorite_border.svg") center center no-repeat !important
+                }
+                .pswp__button--heart[data-favorite="true"] {
+                    background: url("favorite.svg") center center no-repeat !important
+                }
+                .pswp__button--download {
+                    background: url("file_download.svg") center center no-repeat !important
+                }
+            </style>
+            @if (_authorized == true)
+            {
+                <button class="pswp__button pswp__button--heart" title="Add to favorites"></button>
+            }
+            <button class="pswp__button pswp__button--download" title="Download"></button>
+        </CustomButtons>
+    </PhotoSwipeContainer>
+    <PhotoSwipeGallery Items="_photoSwipeItems" PhotoSwipeUIConstructor="@_photoSwipeUIConstructor" />
+}
+
+
+@code {
+    private bool? _authorized;
+
+    private IReadOnlyList<Image> _images;
+    private IReadOnlySet<string> _favorites;
+    private IEnumerable<PhotoSwipeItem> _photoSwipeItems;
+    private string _photoSwipeUIConstructor;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _identityService.IdentityChanged += OnIdentityChanged;
+            await CheckAccount();
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _photoSwipeUIConstructor = await _http.GetStringAsync("photogallery-photoswipe-ui.js");
+    }
+
+    private async Task CheckAccount()
+    {
+        try
+        {
+            var token = (await _identityService.GetIdentityAsync())?.Token;
+            if (token != null)
+            {
+                _authorized = true;
+            }
+        }
+        catch
+        {
+            _authorized = false;
+        }
+        _images = await _imgService.ListImagesAsync();
+        if (_authorized == true)
+        {
+            _favorites = await _imgService.GetFavoritesAsync();
+        }
+        else
+        {
+            _favorites = null;
+        }
+
+        _photoSwipeItems = _images.Select(img => new PhotoSwipeItem()
+        {
+            Source = img.Url,
+            ThumbnailSource = img.ThumbnailUrl,
+            Height = (int)img.Height,
+            Width = (int)img.Width,
+            Title = img.Name,
+            // PictureIndex should be a real index (numeric value)
+            // PictureIndex = ,
+            Properties = new Dictionary<string, object>()
+            {
+                {"FileName", (object)$"{img.Name}.{img.Format}"},
+                {"DownloadUrl", (object)img.DownloadUrl},
+                {"IsFavorite", (object)(_favorites?.Contains(img.Id) ?? false)},
+                {"Id", (object)img.Id}
+            }
+        });
+
+        StateHasChanged();
+    }
+
+    private async void OnIdentityChanged(object sender, EventArgs args)
+    {
+        await CheckAccount();
+    }
+}

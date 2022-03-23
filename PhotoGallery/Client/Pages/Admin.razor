@@ -1,0 +1,298 @@
+﻿@page "/Admin"
+@using System.IdentityModel.Tokens.Jwt
+@using System.Security.Claims
+@using Microsoft.AspNetCore.WebUtilities
+@using PhotoGallery.Models
+@using System.Text.Json
+
+@inject IdentityService _identityService
+@inject DialogService _dialogService
+@inject NotificationService _notificationService
+@inject HttpClient _http
+@inject ClientImagesService _imgService
+
+@implements IDisposable
+
+<PageTitle>Admin</PageTitle>
+
+@if (_isAdmin == null)
+{
+    <h4>Checking your account...</h4>
+    <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+}
+else if ((bool)_isAdmin == false)
+{
+    <h4>You don't seem to be an admin. Please check your account and try again.</h4>
+}
+else
+{
+    <h3>Manage your photo album</h3>
+    
+    @if (_images != null)
+    {
+        <RadzenDataGrid @ref="_imagesGrid" AllowFiltering="true" AllowColumnResize="true" FilterMode="FilterMode.Advanced" AllowSorting="true" PageSize="10" AllowPaging="true" PagerHorizontalAlign="HorizontalAlign.Left" ShowPagingSummary="true"
+            Data="@_images" TItem="Image" ColumnWidth="300px" LogicalFilterOperator="LogicalFilterOperator.Or">
+            <Columns>
+                <RadzenDataGridColumn TItem="Image" Property="Name" Filterable="false" Title="Name" Frozen="true" Width="100px" TextAlign="TextAlign.Center">
+                    <EditTemplate Context="data">
+                        <RadzenTextBox @bind-Value="data.NewName" Style="width:100%; display: block" Name="ImageName" />
+                        <RadzenRequiredValidator Text="Name is required" Component="ImageName" Popup="true" />
+                    </EditTemplate>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="Image" Title="Preview" Frozen="true" Sortable="false" Filterable="false" Width="100px" TextAlign="TextAlign.Center" >
+                    <Template Context="data">
+                        <RadzenImage Path="@data.ThumbnailUrl.ToString()" style="max-height: 64px; max-width:100px;" />
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="Image" Title="Size" Frozen="true" Width="50px" TextAlign="TextAlign.Center" >
+                    <Template Context="data">
+                        @data.Size.ToFileSize()
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="Image" Property="Format" Title="Format" Frozen="true" Width="50px" TextAlign="TextAlign.Center" />
+                <RadzenDataGridColumn TItem="Image" Property="DateCreated" Title="Date created" Frozen="true" Width="70px" TextAlign="TextAlign.Center" />
+                <RadzenDataGridColumn TItem="Image" Title="Actions" Sortable="false" Filterable="false" Frozen="true" Width="128px" TextAlign="TextAlign.Center">
+                    <Template Context="data">
+                        <RadzenButton Icon="preview" ButtonStyle="ButtonStyle.Primary" Click="() => View(data)" />
+                        <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Info" Click="() => _imagesGrid.EditRow(data)" />
+                        <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Click="async () => {if (await Delete(data)) {await _imagesGrid.Reload();}}" />
+                    </Template>
+                    <EditTemplate Context="data">
+                        <RadzenButton Icon="check" ButtonStyle="ButtonStyle.Primary" Click="async () => {if (data.NewName != data.Name && await Rename(data)) await _imagesGrid.UpdateRow(data); else _imagesGrid.CancelEditRow(data);}" />
+                        <RadzenButton Icon="close" ButtonStyle="ButtonStyle.Danger" Click="() => _imagesGrid.CancelEditRow(data)" />
+                    </EditTemplate>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+    }
+
+    
+    <div class="my-3">
+        <h5>Upload images</h5>
+        <RadzenUpload @ref="_upload" Auto="false" Multiple="true"  Accept="image/*" Url="api/Images/upload" Change=@(args => Upload_Change(args))
+                Progress=@(args => Upload_Progress(args)) Error="args => Upload_Error(args)" Complete="args => Upload_Complete(args)" Class="w-100 my-2">
+            <RadzenUploadHeader Name="Authorization" Value="@($"Bearer {_token}")" />
+        </RadzenUpload>
+        <RadzenButton Text="Upload" Icon="upload" IsBusy="@_uploadButtonBusy" BusyText="Uploading..." Click=@(args => UploadButton_Click(args)) />
+        <RadzenProgressBar Value="@_progressBarValue" Style="@_progressBarStyle" Class="w-100" />
+    </div>
+
+    <div class="my-3">
+        <h5>Cloud sync</h5>
+        <div>Click here to sync your images between the server and the cloud provider.</div>
+        <RadzenButton Text="Sync" Icon="sync" IsBusy="@_syncButtonBusy" BusyText="Syncing..." Click="SyncButton_Click" />
+    </div>
+}
+
+@code {
+    private const int SIZE_LIMIT = 10 * 1024 * 1024;
+
+    private RadzenDataGrid<Image> _imagesGrid;
+    private RadzenUpload _upload;
+
+    private string _progressBarStyle = "display:none;";
+    private double _progressBarValue = 0;
+
+    private bool _syncButtonBusy = false;
+    private bool _uploadButtonBusy = false;
+
+    private bool? _isAdmin;
+    private string _token;
+    private IReadOnlyList<Image> _images;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _identityService.IdentityChanged += OnIdentityChanged;
+            await CheckAccount();
+        }
+    }
+
+    private async Task CheckAccount()
+    {
+        bool? oldIsAdmin = _isAdmin;
+        try
+        {
+            var token = (await _identityService.GetIdentityAsync())?.Token;
+            var decodedToken = new JwtSecurityTokenHandler().ReadJwtToken(token);
+            var role = decodedToken.Claims.First(claim => claim.Type == ClaimTypes.Role)?.Value;
+            _isAdmin = (role == "Admin");
+            _token = token;
+        }
+        catch
+        {
+            _isAdmin = false;
+        }
+        if (_isAdmin ?? false)
+        {
+            _images = await _imgService.ListImagesAsync();
+        }
+        else
+        {
+            _token = null;
+        }
+        if (_isAdmin != oldIsAdmin)
+        {
+            StateHasChanged();            
+        }
+    }
+
+    private async void OnIdentityChanged(object sender, EventArgs args)
+    {
+        await CheckAccount();
+    }
+
+    private void Upload_Change(UploadChangeEventArgs args)
+    {
+        foreach (var file in args.Files)
+        {
+            if (file.Size >= SIZE_LIMIT)
+            {
+                _notificationService.Notify(new NotificationMessage(){Severity = NotificationSeverity.Error, Summary = "Error", Detail = $"Image {file.Name} is too big."});
+                _upload.ClearFiles();
+                break;
+            }
+        }
+        StateHasChanged();
+    }
+
+
+    private void Upload_Progress(UploadProgressArgs args)
+    {
+        _progressBarStyle = "display:block;";
+        _progressBarValue = args.Progress;
+        StateHasChanged();
+    }
+
+    private void Upload_Error(UploadErrorEventArgs args)
+    {
+        _notificationService.Notify(new NotificationMessage(){Severity = NotificationSeverity.Error, Summary = "Upload failed", Detail = args.Message});
+        _progressBarStyle = "display:none;";
+        StateHasChanged();
+    }
+
+    private async void Upload_Complete(UploadCompleteEventArgs args)
+    {
+        var newImages = args.JsonResponse.Deserialize<List<Image>>();
+        var successCount = 0;
+        foreach (var img in newImages)
+        {
+            if (img.Id == null)
+            {
+                _notificationService.Notify(new NotificationMessage(){Severity = NotificationSeverity.Error, Summary = "Upload failed", Detail = $"Failed to upload {img.Name}."});
+            }
+            else
+            {
+                ++successCount;
+                _imgService.UnsafeCache.Add(img);
+            }
+        }
+        _images = await _imgService.ListImagesAsync();
+        _notificationService.Notify(new NotificationMessage(){Severity = NotificationSeverity.Success, Summary = "Upload successful", Detail = $"Successfully uploaded {successCount} images."});
+        _progressBarStyle = "display:none;";
+        await _upload.ClearFiles();
+        await _imagesGrid.Reload();
+        _uploadButtonBusy = false;
+        StateHasChanged();
+    }
+
+    private void UploadButton_Click(MouseEventArgs args)
+    {
+        _progressBarStyle = "display:block;";
+        _progressBarValue = 0;
+        _upload.Upload();
+        _uploadButtonBusy = true;
+        StateHasChanged();
+    }
+
+    private async void SyncButton_Click(MouseEventArgs args)
+    {
+        _syncButtonBusy = true;
+        StateHasChanged();
+        try
+        {
+            _images = await _imgService.SyncImagesAsync(); 
+            _notificationService.Notify(new NotificationMessage(){Severity = NotificationSeverity.Success, Summary = "Sync successful", Detail = $"Successfully synced with remote database."});
+        }
+        catch (Exception e)
+        {
+            _notificationService.Notify(new NotificationMessage(){Severity = NotificationSeverity.Error, Summary = "Sync failed", Detail = $"Failed to sync database: {e.Message}."});
+        }
+        await _imagesGrid.Reload();
+        _syncButtonBusy = false;
+        StateHasChanged();
+    }
+
+    private async Task View(Image data)
+    {
+        await _dialogService.OpenAsync("Image", ds =>
+        {
+            return
+            @<div style="display:flex;height:auto;width:100%;overflow:hidden;justify-content:center;align-items:center;">
+                <RadzenImage Path="@data.Url.ToString()" Style="max-height:100%;max-width:100%;"/>
+            </div>
+            ;
+        }, new DialogOptions(){ Left="4px", Top="4px", Bottom="4px", Width="calc(100% - 8px)" });
+    }
+
+    private async Task<bool> Delete(Image data)
+    {
+        bool confirm = await _dialogService.OpenAsync("Confirmation", ds =>
+        {
+            return
+            @<div>
+                <p>Are you sure to delete <b>@data.Name</b>? This action is irreversible!</p>
+
+                <RadzenButton ButtonStyle="ButtonStyle.Danger" Text="Yes" Click="() => ds.Close(true)" />
+                <RadzenButton ButtonStyle="ButtonStyle.Info" Text="No" Click="() => ds.Close(false)" />
+            </div>
+            ;
+        }, new DialogOptions(){ ShowClose = false, CloseDialogOnEsc = false, CloseDialogOnOverlayClick = false });
+        if (confirm)
+        {
+            try
+            {
+                var result = await _imgService.DeleteImageAsync(data.Id);
+                if (result)
+                {
+                    _notificationService.Notify(new NotificationMessage(){Severity = NotificationSeverity.Success, Summary = "Success", Detail = $"Successfullly delete image {data.Name}."});
+                    return true;
+                }
+                else
+                {
+                    _notificationService.Notify(new NotificationMessage(){Severity = NotificationSeverity.Error, Summary = "Error", Detail = $"Failed to delete image {data.Name}."});
+                }
+            }
+            catch (Exception e)
+            {
+                _notificationService.Notify(new NotificationMessage(){Severity = NotificationSeverity.Error, Summary = "Error", Detail = $"Failed to delete image {data.Name}: {e.Message}."});                
+            }
+        }
+        return false;
+    }
+
+    private async Task<bool> Rename(Image data)
+    {
+        try
+        {
+            var newImage = await _imgService.RenameImageAsync(data.Id, data.NewName);
+            _notificationService.Notify(new NotificationMessage(){Severity = NotificationSeverity.Success, Summary = "Success", Detail = $"Successfullly renamed image {data.Name}."});
+            data.Name = newImage.Name;
+            data.Id = newImage.Id;
+            data.NewName = null;
+            return true;
+        }
+        catch (Exception e)
+        {
+            _notificationService.Notify(new NotificationMessage(){Severity = NotificationSeverity.Error, Summary = "Error", Detail = $"Failed to rename image {data.Name}: {e.Message}."});
+            data.NewName = null;        
+        }
+        return false;
+    }
+
+    public void Dispose()
+    {
+        _identityService.IdentityChanged -= OnIdentityChanged;
+    }
+}

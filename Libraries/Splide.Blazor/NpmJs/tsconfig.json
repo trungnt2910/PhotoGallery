@@ -1,0 +1,17 @@
+﻿{
+  "compilerOptions": {
+    "outDir": "../wwwroot/js",
+    "noImplicitAny": true,
+    "module": "ESNext",
+    "target": "es5",
+    "allowJs": true,
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "es2018"
+    ],
+    "removeComments": true
+  }
+}

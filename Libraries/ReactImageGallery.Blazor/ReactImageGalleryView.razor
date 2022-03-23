@@ -1,0 +1,46 @@
+﻿@using Microsoft.JSInterop
+
+@inject IJSRuntime _runtime
+
+<div @ref="_elem"/>
+
+@code 
+{
+    private ElementReference _elem;
+    private ReactImageGalleryProps _properties = new();
+
+    [Parameter]
+    [EditorRequired]
+    public IList<ReactImageGalleryItem> Items
+    {
+        get => _properties.Items;
+        set => _properties.Items = value;
+    }
+
+    [Parameter]
+    public string ThumbnailPosition
+    {
+        get => _properties.ThumbnailPosition;
+        set => _properties.ThumbnailPosition = value;
+    }
+
+    [Parameter]
+    public bool ShowBullets
+    {
+        get => _properties.ShowBullets;
+        set => _properties.ShowBullets = value;
+    }
+
+    [Parameter]
+    public bool AutoPlay
+    {
+        get => _properties.AutoPlay;
+        set => _properties.AutoPlay = value;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        await _runtime.InvokeVoidAsync("ReactImageGallery.Blazor.ReactImageGalleryView.Render", _elem, _properties);
+    }
+}

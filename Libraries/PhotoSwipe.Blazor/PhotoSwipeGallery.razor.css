@@ -1,0 +1,26 @@
+﻿.pswpgallery {
+    width: 100%;
+    float: left;
+}
+
+    .pswpgallery img {
+        width: 100%;
+        height: auto;
+        opacity: 0.8;
+        transition: 0.3s;
+    }
+
+    .pswpgallery img:hover {
+        opacity: 1;
+    }
+
+    .pswpgallery figure {
+        display: block;
+        float: left;
+        margin: 0 5px 5px 0;
+        width: 150px;
+    }
+
+    .pswpgallery figcaption {
+        display: none;
+    }

@@ -1,0 +1,64 @@
+﻿@using Microsoft.JSInterop
+
+@implements IAsyncDisposable
+
+@inject IJSRuntime _runtime
+
+@if (_items != null)
+{
+    <div @ref="_elem" class="pswpgallery" itemscope itemtype="http://schema.org/ImageGallery">
+
+    @for (int i = 0; i < _items.Count; ++i)
+    {
+        var img = _items[i];
+
+        <figure itemprop="associatedMedia" itemscope itemtype="http://schema.org/ImageObject">
+            <a href="@img.Source" itemprop="contentUrl" data-size=@($"{img.Width}x{img.Height}")>
+                <img src="@img.ThumbnailSource" itemprop="thumbnail" alt="@img.Title" />
+            </a>
+            <figcaption itemprop="caption description">@img.Title</figcaption>
+        </figure>        
+    }
+
+    </div>
+}
+
+
+@code
+{
+    private ElementReference _elem;
+
+    private IJSObjectReference _nativeReference;
+
+    private IList<PhotoSwipeItem> _items;
+
+    [Parameter]
+    [EditorRequired]
+    public IEnumerable<PhotoSwipeItem> Items
+    {
+        get => _items;
+        set
+        {
+            _items = value?.ToList();
+        }
+    }
+
+    [Parameter]
+    public string PhotoSwipeUIConstructor
+    {
+        get; set;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        await (_nativeReference?.DisposeAsync() ?? ValueTask.CompletedTask);
+
+        _nativeReference = await _runtime.InvokeAsync<IJSObjectReference>("PhotoSwipe.PhotoSwipeGallery.Construct", _elem, _items, PhotoSwipeUIConstructor);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await (_nativeReference?.DisposeAsync() ?? ValueTask.CompletedTask);
+    }
+}

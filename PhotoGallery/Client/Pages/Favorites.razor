@@ -1,0 +1,134 @@
+﻿@page "/Favorites"
+@using PhotoGallery.Models
+@using PhotoSwipe.Blazor
+
+@inject IdentityService _identityService
+@inject ClientImagesService _imgService
+@inject HttpClient _http
+
+<PageTitle>Favorites</PageTitle>
+
+@if (_authorized == null)
+{
+    <h3>Checking your account...</h3>
+    <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+}
+else if ((bool)_authorized == false)
+{
+    <h3>Please sign in to see your favorite pictures.</h3>
+}
+else
+{
+    <h3>Favorites</h3>
+
+    @if (_images == null || _photoSwipeItems == null)
+    {
+        <h4>Hang on, we're fetching your images...</h4>
+        <RadzenProgressBar Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+    }
+    else
+    {
+        @if (_photoSwipeItems.Any())
+        {   
+            <PhotoSwipeContainer>
+                <CustomButtons>
+                    <style>
+                        .pswp__button--heart {
+                            background: url("favorite_border.svg") center center no-repeat !important
+                        }
+                        .pswp__button--heart[data-favorite="true"] {
+                            background: url("favorite.svg") center center no-repeat !important
+                        }
+                        .pswp__button--download {
+                            background: url("file_download.svg") center center no-repeat !important
+                        }
+                    </style>
+                    <button class="pswp__button pswp__button--heart" title="Add to favorites"></button>
+                    <button class="pswp__button pswp__button--download" title="Download"></button>
+                </CustomButtons>
+            </PhotoSwipeContainer>
+            <PhotoSwipeGallery Items="_photoSwipeItems" PhotoSwipeUIConstructor="@_photoSwipeUIConstructor" />
+        }
+        else
+        {
+            <h4>You don't seem to have any favorites. Try adding some from the gallery!</h4>
+        }
+    }
+}
+
+@code
+{
+    private bool? _authorized;
+
+    private IReadOnlyList<Image> _images;
+    private IReadOnlySet<string> _favorites;
+    private IEnumerable<PhotoSwipeItem> _photoSwipeItems;
+    private string _photoSwipeUIConstructor;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _identityService.IdentityChanged += OnIdentityChanged;
+            await CheckAccount();
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _photoSwipeUIConstructor = await _http.GetStringAsync("photogallery-photoswipe-ui.js");
+    }
+
+    private async Task CheckAccount()
+    {
+        try
+        {
+            var token = (await _identityService.GetIdentityAsync())?.Token;
+            if (token != null)
+            {
+                _authorized = true;
+            }
+            else 
+            {
+                _authorized = false;
+            }
+        }
+        catch
+        {
+            _authorized = false;
+        }
+        _images = await _imgService.ListImagesAsync();
+        if (_authorized == true)
+        {
+            _favorites = await _imgService.GetFavoritesAsync();
+            _photoSwipeItems = _images.Where(img => _favorites.Contains(img.Id)).Select(img => new PhotoSwipeItem()
+            {
+                Source = img.Url,
+                ThumbnailSource = img.ThumbnailUrl,
+                Height = (int)img.Height,
+                Width = (int)img.Width,
+                Title = img.Name,
+                // PictureIndex should be a real index (numeric value)
+                // PictureIndex = ,
+                Properties = new Dictionary<string, object>()
+                {
+                    {"FileName", (object)$"{img.Name}.{img.Format}"},
+                    {"DownloadUrl", (object)img.DownloadUrl},
+                    {"IsFavorite", (object)(_favorites?.Contains(img.Id) ?? false)},
+                    {"Id", (object)img.Id}
+                }
+            });
+        }
+        else
+        {
+            _favorites = null;
+        }
+        
+        StateHasChanged();            
+    }
+
+    private async void OnIdentityChanged(object sender, EventArgs args)
+    {
+        await CheckAccount();
+    }
+}
